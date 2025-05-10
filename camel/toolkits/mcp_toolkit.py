@@ -42,7 +42,7 @@ logger = get_logger(__name__)
 
 class MCPClient(BaseToolkit):
     r"""Internal class that provides an abstraction layer to interact with
-    external tools using the Model Context Protocol (MCP). It supports two
+    external tools using the Model Context Protocol (MCP). It supports three
     modes of connection:
 
     1. stdio mode: Connects via standard input/output streams for local
@@ -50,6 +50,9 @@ class MCPClient(BaseToolkit):
 
     2. SSE mode (HTTP Server-Sent Events): Connects via HTTP for persistent,
        event-based interactions.
+
+    3. streamable-http mode: Connects via HTTP for persistent, streamable
+        interactions.
 
     Attributes:
         command_or_url (str): URL for SSE mode or command executable for stdio
@@ -71,7 +74,7 @@ class MCPClient(BaseToolkit):
         command_or_url: str,
         args: Optional[List[str]] = None,
         env: Optional[Dict[str, str]] = None,
-        timeout: float = 30,
+        timeout: Optional[float] = None,
         headers: Optional[Dict[str, str]] = None,
         strict: Optional[bool] = False,
     ):
@@ -142,7 +145,9 @@ class MCPClient(BaseToolkit):
 
             self._session = await self._exit_stack.enter_async_context(
                 ClientSession(
-                    read_stream, write_stream, timedelta(seconds=self.timeout)
+                    read_stream,
+                    write_stream,
+                    timedelta(seconds=self.timeout) if self.timeout else None,
                 )
             )
             await self._session.initialize()
@@ -326,8 +331,6 @@ class MCPClient(BaseToolkit):
             "additionalProperties": False,
         }
 
-        # Because certain parameters in MCP may include keywords that are not
-        # supported by OpenAI, it is essential to set "strict" to False.
         return {
             "type": "function",
             "function": {
